@@ -1,0 +1,15 @@
+{
+  "name": "Monitor de Medicamentos",
+  "short_name": "MonitorMed",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1e1f24",
+  "theme_color": "#1e1f24",
+  "icons": [
+    {
+      "src": "https://postimg.cc/gxcSbrZQ",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

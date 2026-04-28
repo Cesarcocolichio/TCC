@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e1f24">
+  <title>Monitor de Medicamentos - Família</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Painel de Monitoramento</h1>
+      <div id="relogio-digital">00:00:00</div>
+    </header>
+
+    <div id="compartimentos"></div>
+
+    <div class="footer-actions">
+      <button class="btn-historico" onclick="abrirHistorico()">📋 Histórico de Atividades</button>
+    </div>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content" id="modalContent"></div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('Service Worker registrado!', reg.scope))
+          .catch(err => console.error('Erro ao registrar Service Worker:', err));
+      });
+    }
+  </script>
+</body>
+</html>
