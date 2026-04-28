@@ -1,23 +1,48 @@
 const TOLERANCIA_MINUTOS = 1;
 
-// 1. Captura os parâmetros da URL
+// 1. Tenta pegar a API do LocalStorage ou da URL
+let API_URL = localStorage.getItem('API_URL');
 const urlParams = new URLSearchParams(window.location.search);
-const API_URL = urlParams.get('api'); // Removido o fallback para localhost
 
-// 2. Bloqueio de Segurança/Configuração
+// Se a pessoa ainda usar o link com ?api=, ele salva também
+if (urlParams.has('api')) {
+    API_URL = urlParams.get('api');
+    localStorage.setItem('API_URL', API_URL);
+    // Limpa a URL para ficar elegante
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// 2. Bloqueio de Segurança / Tela de Input de API
 if (!API_URL) {
-    // Se não houver API na URL, interrompe a execução e avisa o usuário
     document.body.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px; background:#1e1f24; color:#e4e6eb; font-family:sans-serif;">
-            <h2 style="color:#e74c3c;">Configuração Necessária</h2>
-            <p>O endereço da API não foi detectado.</p>
-            <code style="background:#000; padding:10px; border-radius:5px; margin:10px 0; word-break:break-all;">
-                ${window.location.origin}${window.location.pathname}?api=LINK_DA_SUA_API
-            </code>
-            <p style="font-size:14px; opacity:0.7;">Insira o link gerado pelo Cloudflared após o "?api="</p>
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px; background:#1e1f24; color:#e4e6eb; font-family:'Segoe UI', Tahoma, sans-serif;">
+            <h2 style="color:#3498db; margin-bottom: 10px;">Conectar ao Sistema</h2>
+            <p style="margin-bottom: 20px;">Informe o endereço da API para iniciar o monitoramento.</p>
+            <input type="text" id="apiInput" placeholder="https://sua-api.trycloudflare.com" style="padding:15px; width:100%; max-width:350px; border-radius:8px; border:2px solid #333; background:#2a2d34; color:white; margin-bottom:20px; text-align:center; font-family:monospace; font-size:16px; outline:none;">
+            <button onclick="salvarApiManual()" style="background:#3498db; color:white; padding:12px 30px; font-size:16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; transition:0.2s;">Salvar e Entrar</button>
+            <p style="font-size:12px; opacity:0.6; margin-top:20px;">O endereço ficará salvo neste dispositivo.</p>
         </div>
+        <style>
+            #apiInput:focus { border-color: #3498db !important; }
+            button:hover { filter: brightness(1.2); }
+        </style>
     `;
-    throw new Error("API_URL não definida. Interrompendo scripts.");
+
+    window.salvarApiManual = function() {
+        let val = document.getElementById('apiInput').value.trim();
+        if (val) {
+            // Remove a barra final se o usuário colocar sem querer
+            if (val.endsWith('/')) {
+                val = val.slice(0, -1);
+            }
+            localStorage.setItem('API_URL', val);
+            window.location.reload(); // Recarrega a página com a API salva
+        } else {
+            alert("Por favor, insira um link válido da API.");
+        }
+    };
+
+    throw new Error("API_URL não definida. Exibindo tela de configuração.");
 }
 
 const API_KEY = "SUA_CHAVE_DE_API_SIMBOLICA_AQUI"; 
@@ -26,8 +51,6 @@ const headersAPI = {
     'Content-Type': 'application/json',
     'x-api-key': API_KEY 
 };
-
-// ... restante do código (compartimentos, window.onload, etc) permanece igual
 
 let compartimentos = [
   { id: 1, horario: null, ativo: false, estado: "sem_config", dataAlvo: null, sensor_aberto: false },
@@ -206,7 +229,6 @@ function traduzirEstado(e) {
   return mapa[e] || e;
 }
 
-// LÓGICA CORRIGIDA DO TIME PICKER (00:00 > 01:00 > 10:00)
 function abrirConfiguracao(id) {
   const comp = compartimentos.find(x => x.id === id);
   if (comp.sensor_aberto) return alert("Feche antes de configurar.");
@@ -246,23 +268,19 @@ function abrirConfiguracao(id) {
 }
 
 function handleTimeInput(e) {
-    // Permite uso normal de Backspace, Tab, setinhas do teclado
     if (["Tab", "ArrowLeft", "ArrowRight", "Delete", "Enter"].includes(e.key)) return;
-    
     e.preventDefault();
-    
     let input = e.target;
     let raw = input.dataset.raw || "";
 
     if (e.key === "Backspace") {
         raw = raw.slice(0, -1);
     } else if (/\d/.test(e.key) && raw.length < 4) {
-        raw += e.key; // Vai acumulando os números digitados
+        raw += e.key;
     }
 
     input.dataset.raw = raw;
 
-    // A mágica acontece aqui: começa sempre em 00:00 e preenche da esquerda para a direita
     let formatado = "00:00";
     if (raw.length === 1) formatado = `0${raw[0]}:00`;
     else if (raw.length === 2) formatado = `${raw[0]}${raw[1]}:00`;
@@ -271,7 +289,6 @@ function handleTimeInput(e) {
 
     input.value = formatado;
 
-    // Sincroniza o visual das listas em tempo real
     let h = formatado.split(":")[0];
     let m = formatado.split(":")[1];
     atualizarSelecaoVisual('h', h);
@@ -287,7 +304,7 @@ function selecionarLista(tipo, valor) {
     if (tipo === 'm') m = valor;
 
     input.value = `${h}:${m}`;
-    input.dataset.raw = h + m; // Mantém a digitação sincronizada com o clique
+    input.dataset.raw = h + m; 
 
     atualizarSelecaoVisual('h', h);
     atualizarSelecaoVisual('m', m);
@@ -307,7 +324,6 @@ function validarHorario(id) {
   let h = val.slice(0,2);
   let m = val.slice(2,4);
   
-  // Travas de segurança para evitar 99:99
   if (parseInt(h) > 23) h = "23";
   if (parseInt(m) > 59) m = "59";
 
@@ -379,3 +395,11 @@ function abrirHistorico() {
 }
 
 function fecharModal() { document.getElementById("modal").classList.remove("show"); }
+
+// Nova função para redefinir o link da API
+function resetarApi() {
+    if(confirm("Deseja desconectar a API atual e inserir um novo link?")) {
+        localStorage.removeItem('API_URL');
+        window.location.reload();
+    }
+}
