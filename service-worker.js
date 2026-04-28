@@ -1,11 +1,14 @@
 const CACHE_NAME = 'monitor-v1';
 const urlsToCache = [
-  './',
-  './index.html',
-  './style.css',
-  './script.js',
-  './manifest.json'
+  '/TCC/',
+  '/TCC/index.html',
+  '/TCC/style.css',
+  '/TCC/script.js',
+  '/TCC/manifest.json',
+  '/TCC/icon-192.png',
+  '/TCC/icon-512.png'
 ];
+// ... restante do código igual
 
 // Instalação do Service Worker
 self.addEventListener('install', event => {
