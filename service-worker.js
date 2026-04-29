@@ -1,13 +1,16 @@
-const CACHE_NAME = 'monitor-v2'; // Mudei para v2 para forçar limpeza
+const CACHE_NAME = 'monitor-v3';
 const urlsToCache = [
   '/TCC/',
   '/TCC/index.html',
   '/TCC/style.css',
   '/TCC/script.js',
+  '/TCC/notificacoes.js', // <--- ADICIONE ESTA LINHA
   '/TCC/manifest.json',
   '/TCC/icon-192.png',
   '/TCC/icon-512.png'
 ];
+
+// ... o resto do seu service-worker.js continua igual ...
 
 self.addEventListener('install', event => {
   event.waitUntil(
