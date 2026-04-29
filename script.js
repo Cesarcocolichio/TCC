@@ -7,6 +7,12 @@ const urlParams = new URLSearchParams(window.location.search);
 // Se a pessoa ainda usar o link com ?api=, ele salva também
 if (urlParams.has('api')) {
     API_URL = urlParams.get('api');
+    if (API_URL.endsWith('/')) {
+        API_URL = API_URL.slice(0, -1);
+    }
+    if (!API_URL.endsWith('/api')) {
+        API_URL += '/api';
+    }
     localStorage.setItem('API_URL', API_URL);
     // Limpa a URL para ficar elegante
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -18,7 +24,7 @@ if (!API_URL) {
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px; background:#1e1f24; color:#e4e6eb; font-family:'Segoe UI', Tahoma, sans-serif;">
             <h2 style="color:#3498db; margin-bottom: 10px;">Conectar ao Sistema</h2>
             <p style="margin-bottom: 20px;">Informe o endereço da API para iniciar o monitoramento.</p>
-            <input type="text" id="apiInput" placeholder="https://sua-api.trycloudflare.com" style="padding:15px; width:100%; max-width:350px; border-radius:8px; border:2px solid #333; background:#2a2d34; color:white; margin-bottom:20px; text-align:center; font-family:monospace; font-size:16px; outline:none;">
+            <input type="text" id="apiInput" onkeydown="if(event.key === 'Enter') salvarApiManual()" placeholder="https://sua-api.trycloudflare.com" style="padding:15px; width:100%; max-width:350px; border-radius:8px; border:2px solid #333; background:#2a2d34; color:white; margin-bottom:20px; text-align:center; font-family:monospace; font-size:16px; outline:none;">
             <button onclick="salvarApiManual()" style="background:#3498db; color:white; padding:12px 30px; font-size:16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; transition:0.2s;">Salvar e Entrar</button>
             <p style="font-size:12px; opacity:0.6; margin-top:20px;">O endereço ficará salvo neste dispositivo.</p>
         </div>
@@ -34,6 +40,10 @@ if (!API_URL) {
             // Remove a barra final se o usuário colocar sem querer
             if (val.endsWith('/')) {
                 val = val.slice(0, -1);
+            }
+            // Adiciona o /api se não existir
+            if (!val.endsWith('/api')) {
+                val += '/api';
             }
             localStorage.setItem('API_URL', val);
             window.location.reload(); // Recarrega a página com a API salva
@@ -252,7 +262,7 @@ function abrirConfiguracao(id) {
     <h2 style="text-align:center;">Agendar C${id}</h2>
     <div class="custom-time-picker">
       <div class="time-input-box">
-        <input type="text" id="time-input" value="00:00" data-raw="" onkeydown="handleTimeInput(event)">
+        <input type="text" id="time-input" value="00:00" data-raw="" data-id="${id}" onkeydown="handleTimeInput(event)">
       </div>
       <div class="time-lists">
         <div class="time-col" id="col-hora">${horasHTML}</div>
@@ -268,7 +278,13 @@ function abrirConfiguracao(id) {
 }
 
 function handleTimeInput(e) {
-    if (["Tab", "ArrowLeft", "ArrowRight", "Delete", "Enter"].includes(e.key)) return;
+    if (e.key === "Enter") {
+        const id = parseInt(e.target.dataset.id);
+        validarHorario(id);
+        return;
+    }
+    
+    if (["Tab", "ArrowLeft", "ArrowRight", "Delete"].includes(e.key)) return;
     e.preventDefault();
     let input = e.target;
     let raw = input.dataset.raw || "";
