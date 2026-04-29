@@ -150,6 +150,7 @@ async function atualizarAPI(id, dados) {
     }
 }
 
+
 async function verificarAlertas(agora) {
   for (const c of compartimentos) {
     if (!c.ativo || !c.dataAlvo) continue;
@@ -161,10 +162,16 @@ async function verificarAlertas(agora) {
     if (agora >= dataAlvoObj && agora < dataLimite && c.estado === "aguardando") {
       await registrarEvento(c.id, "🔔 Hora do medicamento!");
       await atualizarAPI(c.id, { estado: "em_alerta", led: true });
+      
+      // AQUI DISPARA A NOTIFICAÇÃO DE HORA DO REMÉDIO
+      NotificationManager.send("Medication Time!", `It's time to take your medicine from Compartment ${c.id}.`);
     } 
     else if (agora >= dataLimite && c.estado !== "problema") {
       await registrarEvento(c.id, "🔥 ATRASO CRÍTICO detectado.");
       await atualizarAPI(c.id, { estado: "problema", led: true });
+      
+      // AQUI DISPARA A NOTIFICAÇÃO DE ATRASO
+      NotificationManager.send("CRITICAL DELAY!", `The medicine in Compartment ${c.id} is overdue!`);
     }
   }
 }

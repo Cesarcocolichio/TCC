@@ -1,8 +1,8 @@
-// notificacoes.js
+// notifications.js
 
-const SistemaNotificacoes = {
+const NotificationManager = {
     // 1. Pede permissão ao usuário
-    solicitarPermissao: async function() {
+    requestPermission: async function() {
         if (!("Notification" in window)) {
             console.log("Este navegador não suporta notificações de sistema.");
             return false;
@@ -13,35 +13,42 @@ const SistemaNotificacoes = {
         }
         
         if (Notification.permission !== "denied") {
-            const permissao = await Notification.requestPermission();
-            return permissao === "granted";
+            const permission = await Notification.requestPermission();
+            return permission === "granted";
         }
         
         return false;
     },
 
-    // 2. Envia a notificação usando o Service Worker (Ideal para PWA/Mobile)
-    enviar: async function(titulo, mensagem) {
+    // 2. Envia a notificação
+    send: async function(title, message) {
         if (Notification.permission === "granted") {
             if ('serviceWorker' in navigator) {
-                const sw = await navigator.serviceWorker.ready;
-                sw.showNotification(titulo, {
-                    body: mensagem,
-                    icon: 'icon-192.png', // Usa o ícone do seu PWA
-                    badge: 'icon-192.png',
-                    vibrate: [200, 100, 200, 100, 200, 100, 200], // Padrão de vibração
-                    tag: 'monitor-medicamento', // Evita flood: atualiza a notificação se já existir uma
-                    requireInteraction: true // Faz a notificação ficar na tela até a pessoa clicar (ótimo para remédios)
-                });
+                try {
+                    const sw = await navigator.serviceWorker.ready;
+                    await sw.showNotification(title, {
+                        body: message,
+                        icon: 'icon-192.png',
+                        badge: 'icon-192.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        tag: 'med-alert', // tag curta
+                        requireInteraction: true 
+                    });
+                } catch (e) {
+                    console.error("Erro no Service Worker da notificação:", e);
+                    // Fallback
+                    new Notification(title, { body: message, icon: 'icon-192.png' });
+                }
             } else {
-                // Fallback caso o SW não esteja pronto
-                new Notification(titulo, { body: mensagem, icon: 'icon-192.png' });
+                new Notification(title, { body: message, icon: 'icon-192.png' });
             }
+        } else {
+            console.log("Permissão de notificação negada.");
         }
     }
 };
 
-// Solicita a permissão logo que esse script for carregado
+// Pede permissão assim que a tela abre
 window.addEventListener('load', () => {
-    SistemaNotificacoes.solicitarPermissao();
+    NotificationManager.requestPermission();
 });
