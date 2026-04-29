@@ -4,7 +4,7 @@ const NotificationManager = {
     // 1. Pede permissão ao usuário
     requestPermission: async function() {
         if (!("Notification" in window)) {
-            console.log("Este navegador não suporta notificações de sistema.");
+            console.log("Navegador não suporta notificações.");
             return false;
         }
         
@@ -20,35 +20,38 @@ const NotificationManager = {
         return false;
     },
 
-    // 2. Envia a notificação
-    send: async function(title, message) {
+    // 2. Envia a notificação com ID único para não sobrepor
+    // tipo pode ser: 'alerta', 'atraso' ou 'sucesso'
+    send: async function(titulo, mensagem, idCompartimento, tipo) {
         if (Notification.permission === "granted") {
             if ('serviceWorker' in navigator) {
                 try {
                     const sw = await navigator.serviceWorker.ready;
-                    await sw.showNotification(title, {
-                        body: message,
+                    
+                    // Criamos uma tag única baseada no compartimento e tipo
+                    // Ex: 'comp1-alerta', 'comp2-atraso'
+                    const tagUnica = `comp${idCompartimento}-${tipo}`;
+
+                    await sw.showNotification(titulo, {
+                        body: mensagem,
                         icon: 'icon-192.png',
                         badge: 'icon-192.png',
                         vibrate: [200, 100, 200, 100, 200],
-                        tag: 'med-alert', // tag curta
+                        tag: tagUnica, 
                         requireInteraction: true 
                     });
                 } catch (e) {
-                    console.error("Erro no Service Worker da notificação:", e);
-                    // Fallback
-                    new Notification(title, { body: message, icon: 'icon-192.png' });
+                    console.error("Erro ao disparar notificação:", e);
+                    new Notification(titulo, { body: mensagem, icon: 'icon-192.png' });
                 }
             } else {
-                new Notification(title, { body: message, icon: 'icon-192.png' });
+                new Notification(titulo, { body: message, icon: 'icon-192.png' });
             }
-        } else {
-            console.log("Permissão de notificação negada.");
         }
     }
 };
 
-// Pede permissão assim que a tela abre
+// Solicita permissão ao carregar a página
 window.addEventListener('load', () => {
     NotificationManager.requestPermission();
 });

@@ -1,24 +1,20 @@
-const CACHE_NAME = 'monitor-v3';
+const CACHE_NAME = 'monitor-v4'; // Versão 4 para forçar atualização
 const urlsToCache = [
   '/TCC/',
   '/TCC/index.html',
   '/TCC/style.css',
   '/TCC/script.js',
-  '/TCC/notificacoes.js', // <--- ADICIONE ESTA LINHA
+  '/TCC/notifications.js',
   '/TCC/manifest.json',
   '/TCC/icon-192.png',
   '/TCC/icon-512.png'
 ];
 
-// ... o resto do seu service-worker.js continua igual ...
-
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
-  self.skipWaiting(); // Força o novo SW a assumir o controle imediatamente
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -27,7 +23,6 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Removendo cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -36,16 +31,29 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Estratégia Network-First: Tenta a rede, se falhar (offline), usa o cache.
+// ESTRATÉGIA DE REDE
 self.addEventListener('fetch', event => {
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Se a rede funcionar, clona e salva no cache para uso offline posterior
-        const resClone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
-        return response;
-      })
-      .catch(() => caches.match(event.request)) // Se falhar a rede, entrega o cache
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
+});
+
+// ESCUTAR O CLIQUE NA NOTIFICAÇÃO
+self.addEventListener('notificationclick', event => {
+  event.notification.close(); // Fecha a notificação ao clicar
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Se o app já estiver aberto, foca nele
+      for (const client of clientList) {
+        if (client.url.includes('/TCC/') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Se não estiver aberto, abre o app
+      if (clients.openWindow) {
+        return clients.openWindow('/TCC/');
+      }
+    })
   );
 });
