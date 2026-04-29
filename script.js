@@ -239,6 +239,53 @@ function traduzirEstado(e) {
   return mapa[e] || e;
 }
 
+// NOVO: Função para detectar a rolagem do "despertador"
+function detectarScroll(tipo) {
+    const col = document.getElementById(tipo === 'h' ? 'col-hora' : 'col-min');
+    const options = col.querySelectorAll('.time-option');
+
+    const colCenter = col.scrollTop + col.clientHeight / 2;
+
+    let closest = null;
+    let closestDist = Infinity;
+
+    options.forEach(opt => {
+        const optCenter = opt.offsetTop + opt.offsetHeight / 2;
+        const dist = Math.abs(colCenter - optCenter);
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            closest = opt;
+        }
+    });
+
+    if (closest) {
+        const valor = closest.innerText;
+        selecionarLista(tipo, valor, true);
+    }
+}
+
+function rolarTime(e, tipo) {
+    e.preventDefault();
+
+    const col = document.getElementById(tipo === 'h' ? 'col-hora' : 'col-min');
+    if (!col) return;
+
+    const passo = col.querySelector('.time-option')?.offsetHeight || 50;
+    const max = tipo === 'h' ? 23 : 59;
+
+    const atual = Math.round(col.scrollTop / passo);
+    const direcao = e.deltaY > 0 ? 1 : -1;
+    const proximo = Math.max(0, Math.min(max, atual + direcao));
+
+    col.scrollTo({
+        top: proximo * passo,
+        behavior: 'smooth'
+    });
+
+    selecionarLista(tipo, String(proximo).padStart(2, '0'), true);
+}
+
 function abrirConfiguracao(id) {
   const comp = compartimentos.find(x => x.id === id);
   if (comp.sensor_aberto) return alert("Feche antes de configurar.");
@@ -246,27 +293,47 @@ function abrirConfiguracao(id) {
   const modal = document.getElementById("modal");
   const content = document.getElementById("modalContent");
   
-  let horasHTML = "";
+  // Adicionado padding vazio para centralizar o primeiro e último item
+  let horasHTML = "<div style='height:50px; flex-shrink:0;'></div>";
   for(let i=0; i<24; i++) {
     let num = i.toString().padStart(2,'0');
     horasHTML += `<div class="time-option" id="opt-h-${num}" onclick="selecionarLista('h', '${num}')">${num}</div>`;
   }
+  horasHTML += "<div style='height:50px; flex-shrink:0;'></div>";
   
-  let minHTML = "";
+  let minHTML = "<div style='height:50px; flex-shrink:0;'></div>";
   for(let i=0; i<60; i++) {
     let num = i.toString().padStart(2,'0');
     minHTML += `<div class="time-option" id="opt-m-${num}" onclick="selecionarLista('m', '${num}')">${num}</div>`;
   }
+  minHTML += "<div style='height:50px; flex-shrink:0;'></div>";
 
   content.innerHTML = `
+    <style>
+      .custom-time-picker { display:flex; flex-direction:column; align-items:center; gap:15px; margin:20px 0; }
+      #time-input { font-size:2rem; text-align:center; background:#2a2d34; color:#3498db; border:2px solid #333; border-radius:8px; padding:10px; width:100%; max-width:150px; font-family:monospace; outline:none; pointer-events:none; }
+      .time-lists-wrapper { position:relative; background:#1e1f24; padding:10px; border-radius:10px; border:1px solid #333; box-shadow:inset 0 0 10px rgba(0,0,0,0.5); width:100%; max-width: 250px; }
+      .time-lists-wrapper::before, .time-lists-wrapper::after { content:''; position:absolute; left:0; right:0; height:50px; pointer-events:none; z-index:2; }
+      .time-lists-wrapper::before { top:0; background:linear-gradient(to bottom, #1e1f24 20%, transparent); border-radius:10px 10px 0 0; }
+      .time-lists-wrapper::after { bottom:0; background:linear-gradient(to top, #1e1f24 20%, transparent); border-radius:0 0 10px 10px; }
+      .time-lists { display:flex; gap:20px; align-items:center; justify-content:center; }
+      .time-col { height:150px; width:70px; overflow-y:auto; scroll-snap-type:y mandatory; scrollbar-width:none; position:relative; scroll-behavior:smooth; }
+      .time-col::-webkit-scrollbar { display:none; }
+      .time-option { height:50px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; color:#555; scroll-snap-align:center; cursor:pointer; transition:0.2s; user-select:none; }
+      .time-option.active { color:#3498db; font-size:1.8rem; font-weight:bold; }
+      .time-separator { font-size:2rem; font-weight:bold; color:#555; padding-bottom:5px; }
+    </style>
     <h2 style="text-align:center;">Agendar C${id}</h2>
     <div class="custom-time-picker">
       <div class="time-input-box">
-        <input type="text" id="time-input" value="00:00" data-raw="" data-id="${id}" onkeydown="handleTimeInput(event)">
+        <input type="text" id="time-input" value="00:00" data-raw="" data-id="${id}" readonly inputmode="none" onkeydown="handleTimeInput(event)">
       </div>
-      <div class="time-lists">
-        <div class="time-col" id="col-hora">${horasHTML}</div>
-        <div class="time-col" id="col-min">${minHTML}</div>
+      <div class="time-lists-wrapper">
+        <div class="time-lists">
+          <div class="time-col" id="col-hora" onscroll="detectarScroll('h')" onwheel="rolarTime(event, 'h')">${horasHTML}</div>
+          <div class="time-separator">:</div>
+          <div class="time-col" id="col-min" onscroll="detectarScroll('m')" onwheel="rolarTime(event, 'm')">${minHTML}</div>
+        </div>
       </div>
     </div>
     <div style="display:flex; gap:10px;">
@@ -275,8 +342,15 @@ function abrirConfiguracao(id) {
     </div>
   `;
   modal.classList.add("show");
+
+  // Posiciona a rolagem inicial no "00:00" ao abrir
+  setTimeout(() => {
+      selecionarLista('h', '00');
+      selecionarLista('m', '00');
+  }, 50);
 }
 
+// Mantido sem remoção de linha, mas a digitação está bloqueada pelo readonly e inputmode
 function handleTimeInput(e) {
     if (e.key === "Enter") {
         const id = parseInt(e.target.dataset.id);
@@ -311,7 +385,8 @@ function handleTimeInput(e) {
     if (raw.length >= 2) atualizarSelecaoVisual('m', m);
 }
 
-function selecionarLista(tipo, valor) {
+// Ajustado para receber isScroll e evitar bug de piscar a tela
+function selecionarLista(tipo, valor, isScroll = false) {
     const input = document.getElementById('time-input');
     let h = input.value.split(":")[0];
     let m = input.value.split(":")[1];
@@ -322,16 +397,32 @@ function selecionarLista(tipo, valor) {
     input.value = `${h}:${m}`;
     input.dataset.raw = h + m; 
 
-    atualizarSelecaoVisual('h', h);
-    atualizarSelecaoVisual('m', m);
+    atualizarSelecaoVisual(tipo, valor, isScroll);
 }
 
-function atualizarSelecaoVisual(tipo, valor) {
-    document.querySelectorAll(`[id^='opt-${tipo}-']`).forEach(el => el.classList.remove('active'));
+// Ajustado para usar comportamento nativo de scroll da div
+function atualizarSelecaoVisual(tipo, valor, isScroll = false) {
+    document.querySelectorAll(`[id^='opt-${tipo}-']`)
+        .forEach(el => el.classList.remove('active'));
+
     let opt = document.getElementById(`opt-${tipo}-${valor}`);
-    if(opt) {
+
+    if (opt) {
         opt.classList.add('active');
-        opt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        if (!isScroll) {
+            const col = document.getElementById(tipo === 'h' ? 'col-hora' : 'col-min');
+
+            const target =
+                opt.offsetTop -
+                (col.clientHeight / 2) +
+                (opt.offsetHeight / 2);
+
+            col.scrollTo({
+                top: target,
+                behavior: 'smooth'
+            });
+        }
     }
 }
 
