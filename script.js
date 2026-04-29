@@ -103,44 +103,53 @@ async function sincronizarComAPI() {
         
         compartimentos.forEach(c => {
             const remoto = dadosRemotos[c.id];
-            const estadoAnteriorNoLoop = c.estado; // Estado que estava no ecrã antes desta atualização
+            const estadoAnteriorNoLoop = c.estado; 
             
             c.sensor_aberto = remoto.sensor_aberto;
             c.horario = remoto.horario;
             c.dataAlvo = remoto.dataAlvo;
             c.ativo = (remoto.estado !== "sem_config");
 
-            // --- LÓGICA DE NOTIFICAÇÃO DE "TOMADO" ---
-            // Se o estado mudou de um alerta (laranja ou vermelho) para um estado de sucesso (verde)
-            const mudouParaTomado = (estadoAnteriorNoLoop === 'em_alerta' || estadoAnteriorNoLoop === 'problema') && 
-                                    (remoto.estado === 'tomado' || remoto.estado === 'tomado_atrasado');
+            // --- LÓGICA DE NOTIFICAÇÃO (CIRÚRGICA) ---
+            // Verifica se o estado mudou para qualquer tipo de "tomado" ou se a gaveta abriu agora
+            const estadosSucesso = ['tomado', 'tomado_atrasado', 'tomado_antecipado'];
+            const mudouParaTomado = !estadosSucesso.includes(estadoAnteriorNoLoop) && estadosSucesso.includes(remoto.estado);
 
-            if (mudouParaTomado || (remoto.sensor_aberto === true && estadoAnteriorNoLoop !== 'tomado' && remoto.estado === 'tomado')) {
+            if (mudouParaTomado || (c.sensor_aberto && !estadosSucesso.includes(estadoAnteriorNoLoop))) {
                  NotificationManager.send(
-                    "Remédio Tomado!", 
-                    `O medicamento do Compartimento ${c.id} foi retirado com sucesso.`,
+                    "Remédio Retirado!", 
+                    `O medicamento do Compartimento ${c.id} foi removido.`,
                     c.id,
                     'sucesso'
                 );
             }
-            // ------------------------------------------
 
-            if (remoto.sensor_aberto === true) {
-                if (remoto.estado === "em_alerta" && estadoAnteriorNoLoop !== "tomado") {
+            // --- TRATAMENTO DE ESTADOS AO ABRIR ---
+            if (c.sensor_aberto === true) {
+                if (remoto.estado === "em_alerta" || estadoAnteriorNoLoop === "em_alerta") {
                     c.estado = "tomado";
                     registrarEvento(c.id, "✅ Sucesso: Medicamento retirado no horário.");
                     atualizarAPI(c.id, { estado: "tomado", led: false });
                 } 
-                else if (remoto.estado === "problema" && estadoAnteriorNoLoop !== "tomado_atrasado") {
+                else if (remoto.estado === "problema" || estadoAnteriorNoLoop === "problema") {
                     c.estado = "tomado_atrasado";
                     registrarEvento(c.id, "⚠️ Aviso: Medicamento retirado com atraso.");
                     atualizarAPI(c.id, { estado: "tomado_atrasado", led: false });
                 }
-                // ... resto da sua lógica de estados (antecipado, etc)
+                // NOVA CONDIÇÃO: Se abriu enquanto estava apenas "aguardando" (antes da hora)
+                else if (remoto.estado === "aguardando" || estadoAnteriorNoLoop === "aguardando") {
+                    c.estado = "tomado_antecipado";
+                    registrarEvento(c.id, "ℹ️ Info: Medicamento retirado antes da hora.");
+                    atualizarAPI(c.id, { estado: "tomado_antecipado", led: false });
+                }
+                else {
+                    c.estado = remoto.estado;
+                }
             } else {
                 c.estado = remoto.estado;
             }
         });
+        
         render();
     } catch (e) {
         console.error("Erro ao sincronizar:", e);
