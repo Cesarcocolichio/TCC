@@ -199,7 +199,12 @@ function render() {
         if (c.estado === "sem_config" || c.estado === "vazio_aberto") {
             controleHtml = `<button onclick="abrirConfiguracao(${c.id})" style="background:var(--aguardando)">Agendar</button>`;
         } else if (c.estado === "aguardando") {
-            controleHtml = `<button onclick="desativar(${c.id})">Cancelar</button>`;
+            // MUDANÇA: Adicionado botão de Editar junto ao de Excluir
+            controleHtml = `
+                <div style="display:flex; gap:5px;">
+                    <button onclick="abrirConfiguracao(${c.id})" style="background:#f39c12; padding: 5px 10px; flex:1;">Editar</button>
+                    <button onclick="desativar(${c.id})" style="padding: 5px 10px; flex:1;">Excluir</button>
+                </div>`;
         } else if (cicloEncerrado) {
             controleHtml = `<button onclick="reabastecer(${c.id})">Reabastecer</button>`;
         } else {
@@ -231,7 +236,7 @@ function render() {
 
 function traduzirEstado(e) {
   const mapa = { 
-      sem_config: "Livre", vazio_aberto: "Livre", aguardando: "Monitorando", 
+      sem_config: "Livre", vazio_aberto: "Livre",  aguardando: "Monitorando", 
       em_alerta: "🚨 Hora do Medicamento", tomado: "✅ Tomado no Horário", 
       tomado_antecipado: "⚠️ Tomado Antecipado", tomado_atrasado: "⚠️ Tomado Atrasado",
       problema: "🔥 ATRASADO" 
@@ -239,7 +244,7 @@ function traduzirEstado(e) {
   return mapa[e] || e;
 }
 
-// NOVO: Função para detectar a rolagem do "despertador"
+// Função para detectar a rolagem do "despertador"
 function detectarScroll(tipo) {
     const col = document.getElementById(tipo === 'h' ? 'col-hora' : 'col-min');
     const options = col.querySelectorAll('.time-option');
@@ -290,6 +295,11 @@ function abrirConfiguracao(id) {
   const comp = compartimentos.find(x => x.id === id);
   if (comp.sensor_aberto) return alert("Feche antes de configurar.");
 
+  // MUDANÇA: Lógica para carregar o horário já existente ou 00:00
+  const horarioAtual = comp.horario || "00:00";
+  const [hInicial, mInicial] = horarioAtual.split(":");
+  const rawInicial = hInicial + mInicial;
+
   const modal = document.getElementById("modal");
   const content = document.getElementById("modalContent");
   
@@ -326,7 +336,7 @@ function abrirConfiguracao(id) {
     <h2 style="text-align:center;">Agendar C${id}</h2>
     <div class="custom-time-picker">
       <div class="time-input-box">
-        <input type="text" id="time-input" value="00:00" data-raw="" data-id="${id}" readonly inputmode="none" onkeydown="handleTimeInput(event)">
+        <input type="text" id="time-input" value="${horarioAtual}" data-raw="${rawInicial}" data-id="${id}" readonly inputmode="none" onkeydown="handleTimeInput(event)">
       </div>
       <div class="time-lists-wrapper">
         <div class="time-lists">
@@ -343,14 +353,14 @@ function abrirConfiguracao(id) {
   `;
   modal.classList.add("show");
 
-  // Posiciona a rolagem inicial no "00:00" ao abrir
+  // MUDANÇA: Posiciona a rolagem inicial no horário que já estava configurado
   setTimeout(() => {
-      selecionarLista('h', '00');
-      selecionarLista('m', '00');
+      selecionarLista('h', hInicial);
+      selecionarLista('m', mInicial);
   }, 50);
 }
 
-// Mantido sem remoção de linha, mas a digitação está bloqueada pelo readonly e inputmode
+// Bloqueado pelo readonly e inputmode
 function handleTimeInput(e) {
     if (e.key === "Enter") {
         const id = parseInt(e.target.dataset.id);
@@ -385,7 +395,6 @@ function handleTimeInput(e) {
     if (raw.length >= 2) atualizarSelecaoVisual('m', m);
 }
 
-// Ajustado para receber isScroll e evitar bug de piscar a tela
 function selecionarLista(tipo, valor, isScroll = false) {
     const input = document.getElementById('time-input');
     let h = input.value.split(":")[0];
@@ -400,7 +409,6 @@ function selecionarLista(tipo, valor, isScroll = false) {
     atualizarSelecaoVisual(tipo, valor, isScroll);
 }
 
-// Ajustado para usar comportamento nativo de scroll da div
 function atualizarSelecaoVisual(tipo, valor, isScroll = false) {
     document.querySelectorAll(`[id^='opt-${tipo}-']`)
         .forEach(el => el.classList.remove('active'));
