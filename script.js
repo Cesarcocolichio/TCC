@@ -110,43 +110,43 @@ async function sincronizarComAPI() {
             c.dataAlvo = remoto.dataAlvo;
             c.ativo = (remoto.estado !== "sem_config");
 
-            // --- LÓGICA DE NOTIFICAÇÃO (CIRÚRGICA) ---
-            // Verifica se o estado mudou para qualquer tipo de "tomado" ou se a gaveta abriu agora
-            const estadosSucesso = ['tomado', 'tomado_atrasado', 'tomado_antecipado'];
-            const mudouParaTomado = !estadosSucesso.includes(estadoAnteriorNoLoop) && estadosSucesso.includes(remoto.estado);
+            let dispararNotificacao = null;
 
-            if (mudouParaTomado || (c.sensor_aberto && !estadosSucesso.includes(estadoAnteriorNoLoop))) {
-                 NotificationManager.send(
-                    "Remédio Retirado!", 
-                    `O medicamento do Compartimento ${c.id} foi removido.`,
-                    c.id,
-                    'sucesso'
-                );
-            }
-
-            // --- TRATAMENTO DE ESTADOS AO ABRIR ---
             if (c.sensor_aberto === true) {
-                if (remoto.estado === "em_alerta" || estadoAnteriorNoLoop === "em_alerta") {
-                    c.estado = "tomado";
-                    registrarEvento(c.id, "✅ Sucesso: Medicamento retirado no horário.");
-                    atualizarAPI(c.id, { estado: "tomado", led: false });
-                } 
-                else if (remoto.estado === "problema" || estadoAnteriorNoLoop === "problema") {
-                    c.estado = "tomado_atrasado";
-                    registrarEvento(c.id, "⚠️ Aviso: Medicamento retirado com atraso.");
-                    atualizarAPI(c.id, { estado: "tomado_atrasado", led: false });
-                }
-                // NOVA CONDIÇÃO: Se abriu enquanto estava apenas "aguardando" (antes da hora)
-                else if (remoto.estado === "aguardando" || estadoAnteriorNoLoop === "aguardando") {
-                    c.estado = "tomado_antecipado";
-                    registrarEvento(c.id, "ℹ️ Info: Medicamento retirado antes da hora.");
-                    atualizarAPI(c.id, { estado: "tomado_antecipado", led: false });
-                }
-                else {
-                    c.estado = remoto.estado;
+                // Só processa mudança de estado e notificação se houver um alarme pendente
+                const temAlarmeAtivo = ['em_alerta', 'problema', 'aguardando'].includes(remoto.estado) || 
+                                     ['em_alerta', 'problema', 'aguardando'].includes(estadoAnteriorNoLoop);
+
+                if (temAlarmeAtivo) {
+                    const jaEstavaResolvido = ['tomado', 'tomado_atrasado', 'tomado_antecipado'].includes(estadoAnteriorNoLoop);
+
+                    if (remoto.estado === "em_alerta" || estadoAnteriorNoLoop === "em_alerta") {
+                        c.estado = "tomado";
+                        if (!jaEstavaResolvido) dispararNotificacao = { titulo: `C${c.id} Aberto`, msg: `Aberto no horário.`, tipo: `sucesso` };
+                        registrarEvento(c.id, "✅ Compartimento aberto no horário.");
+                        atualizarAPI(c.id, { estado: "tomado", led: false });
+                    } 
+                    else if (remoto.estado === "problema" || estadoAnteriorNoLoop === "problema") {
+                        c.estado = "tomado_atrasado";
+                        if (!jaEstavaResolvido) dispararNotificacao = { titulo: `C${c.id} Aberto`, msg: `Aberto com atraso.`, tipo: `atraso` };
+                        registrarEvento(c.id, "⚠️ Compartimento aberto com atraso.");
+                        atualizarAPI(c.id, { estado: "tomado_atrasado", led: false });
+                    }
+                    else if (remoto.estado === "aguardando" || estadoAnteriorNoLoop === "aguardando") {
+                        c.estado = "tomado_antecipado";
+                        if (!jaEstavaResolvido) dispararNotificacao = { titulo: `C${c.id} Aberto`, msg: `Aberto antecipadamente.`, tipo: `antecipado` };
+                        registrarEvento(c.id, "ℹ️ Compartimento aberto antes da hora.");
+                        atualizarAPI(c.id, { estado: "tomado_antecipado", led: false });
+                    }
+                } else {
+                    c.estado = remoto.estado; // Mantém o estado original (Livre, etc)
                 }
             } else {
                 c.estado = remoto.estado;
+            }
+
+            if (dispararNotificacao) {
+                NotificationManager.send(dispararNotificacao.titulo, dispararNotificacao.msg, c.id, `${dispararNotificacao.tipo}-${Date.now()}`);
             }
         });
         
@@ -154,6 +154,16 @@ async function sincronizarComAPI() {
     } catch (e) {
         console.error("Erro ao sincronizar:", e);
     }
+}
+
+function traduzirEstado(e) {
+  const mapa = { 
+      sem_config: "Livre", vazio_aberto: "Livre", aguardando: "Monitorando", 
+      em_alerta: "🚨 Hora do Medicamento", tomado: "✅ Aberto no Horário", 
+      tomado_antecipado: "⚠️ Aberto Antecipado", tomado_atrasado: "⚠️ Aberto Atrasado",
+      problema: "🔥 ATRASADO" 
+  };
+  return mapa[e] || e;
 }
 
 async function atualizarAPI(id, dados) {
@@ -183,10 +193,10 @@ async function verificarAlertas(agora) {
       
       // Notificação: Hora do Remédio
       NotificationManager.send(
-        "Hora do Remédio!", 
-        `Está na hora de tomar o medicamento do Compartimento ${c.id}.`,
+        `C${c.id}: Hora!`, 
+        `Abra o compartimento ${c.id}.`,
         c.id,
-        'alerta'
+        `alerta-${Date.now()}`
       );
     } 
     else if (agora >= dataLimite && c.estado !== "problema") {
@@ -195,10 +205,10 @@ async function verificarAlertas(agora) {
       
       // Notificação: Atraso Crítico
       NotificationManager.send(
-        "ATRASO CRÍTICO!", 
-        `O medicamento do Compartimento ${c.id} está atrasado!`,
+        `C${c.id}: Atraso!`, 
+        `Compartimento esquecido!`,
         c.id,
-        'atraso'
+        `atraso-${Date.now()}`
       );
     }
   }
@@ -272,8 +282,8 @@ function render() {
 function traduzirEstado(e) {
   const mapa = { 
       sem_config: "Livre", vazio_aberto: "Livre",  aguardando: "Monitorando", 
-      em_alerta: "🚨 Hora do Medicamento", tomado: "✅ Tomado no Horário", 
-      tomado_antecipado: "⚠️ Tomado Antecipado", tomado_atrasado: "⚠️ Tomado Atrasado",
+      em_alerta: "🚨 Hora do Medicamento", tomado: "✅ Aberto no Horário", 
+      tomado_antecipado: "⚠️ Aberto Antecipado", tomado_atrasado: "⚠️ Aberto Atrasado",
       problema: "🔥 ATRASADO" 
   };
   return mapa[e] || e;
