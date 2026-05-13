@@ -1,8 +1,8 @@
 {
   "name": "Monitor de Medicamentos",
   "short_name": "MonitorMed",
-  "start_url": "/TCC/",
-  "scope": "/TCC/",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#1e1f24",
   "theme_color": "#1e1f24",

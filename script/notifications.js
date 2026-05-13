@@ -1,4 +1,4 @@
-// notifications.js
+// js/notifications.js
 
 const NotificationManager = {
     requestPermission: async function() {
@@ -20,29 +20,30 @@ const NotificationManager = {
     },
 
     send: async function(titulo, mensagem, idCompartimento, tipo) {
+        // Caminho do ícone ajustado para subir um nível (saindo da pasta js/)
+        const iconPath = '../icon-192.png'; 
+
         if (Notification.permission === "granted") {
             if ('serviceWorker' in navigator) {
                 try {
                     const sw = await navigator.serviceWorker.ready;
                     
-                    // A tag agora usa o 'tipo' que já contém o timestamp vindo do script.js
-                    // Isso garante que cada notificação seja tratada como um evento novo
                     const tagUnica = `comp${idCompartimento}-${tipo}`;
 
                     await sw.showNotification(titulo, {
                         body: mensagem,
-                        icon: 'icon-192.png',
-                        badge: 'icon-192.png',
+                        icon: iconPath,
+                        badge: iconPath,
                         vibrate: [200, 100, 200, 100, 200],
                         tag: tagUnica, 
                         requireInteraction: true 
                     });
                 } catch (e) {
                     console.error("Erro ao disparar notificação:", e);
-                    new Notification(titulo, { body: mensagem, icon: 'icon-192.png' });
+                    new Notification(titulo, { body: mensagem, icon: iconPath });
                 }
             } else {
-                new Notification(titulo, { body: mensagem, icon: 'icon-192.png' });
+                new Notification(titulo, { body: mensagem, icon: iconPath });
             }
         }
     }
@@ -51,3 +52,5 @@ const NotificationManager = {
 window.addEventListener('load', () => {
     NotificationManager.requestPermission();
 });
+
+window.NotificationManager = NotificationManager;

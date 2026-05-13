@@ -1,13 +1,17 @@
-const CACHE_NAME = 'monitor-v4'; // Versão 4 para forçar atualização
+const CACHE_NAME = 'monitor-v7';
+
 const urlsToCache = [
-  '/TCC/',
-  '/TCC/index.html',
-  '/TCC/style.css',
-  '/TCC/script.js',
-  '/TCC/notifications.js',
-  '/TCC/manifest.json',
-  '/TCC/icon-192.png',
-  '/TCC/icon-512.png'
+  './',
+  './index.html',
+  './style.css',
+  './script/state.js',
+  './script/api.js',
+  './script/ui.js',
+  './script/app.js',
+  './script/notifications.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
